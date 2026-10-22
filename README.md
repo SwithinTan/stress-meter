@@ -1,3 +1,104 @@
+<a id="english"></a>
+
+# Stress Meter
+
+[English](#english) | [简体中文](#chinese)
+
+A standalone watch app with a Chinese interface for **Apple Watch Series 11 running watchOS 26 or later**. It reads heart rate variability (SDNN), heart rate, and workout records from Apple Health to show an experimental estimate of stress trends relative to your recent personal baseline.
+
+The **grey tabby cat** on the dashboard expresses the estimate through its posture and gentle animations, alongside the level and the actual sample time.
+
+| State | Grey tabby behavior |
+| --- | --- |
+| Lower | Stretches out, relaxes with closed eyes, and gently sways its tail |
+| Usual | Sits comfortably, breathes steadily, and occasionally blinks |
+| Elevated | Curls up slightly, lowers its ears, and tucks its tail in |
+| No data, insufficient baseline, stale data, activity effects, or read failure | Uses a neutral waiting pose with an ellipsis and displays the specific reason |
+
+The cat is drawn with native SwiftUI vector graphics. Its illustration updates at up to approximately 12 frames per second, only while the app is active and the cat is visible on the dashboard. It uses a static pose during reduced-luminance Always On display, Low Power Mode, Reduce Motion, navigation away from the page, or scrolling the cat out of view. The animation clock never triggers health data queries, and movement does not indicate a new measurement.
+
+[Preview the four poses](docs/screenshots/tabby-poses.png)
+
+## Open and run
+
+1. Open `StressMeter.xcodeproj` in Xcode and select the **StressMeter** scheme.
+2. Select an installed Apple Watch simulator and run the app. Tap **体验演示** (Try demo) to explore the interface. Demo mode is always labeled **演示 · 非健康数据** (Demo · Not health data).
+3. To install on a physical watch, select your Apple Developer Team under **Signing & Capabilities**, replace `com.example.StressMeter` with your own unique Bundle Identifier, and retain the HealthKit capability and background delivery entitlement.
+4. Connect the paired iPhone / Apple Watch through Xcode's Devices and Simulators, enable Developer Mode when prompted, select the watch as the run destination, and run the app.
+5. On the watch, tap **连接健康数据** (Connect health data) and allow read access to heart rate, heart rate variability, and workouts. The app does not request write access.
+
+Your account and provisioning profile must support HealthKit signing. The simulator has no real optical sensor data; a working demo and successful build do not establish stability on a physical Series 11.
+
+You can also launch explicitly with `--demo`, which is useful for simulator screenshots. Demo mode is never enabled automatically when a live query fails or returns no data.
+
+## Refresh frequency
+
+| Situation | Behavior |
+| --- | --- |
+| Foreground, 07:00–22:59 | Targets a health record query every 5 minutes |
+| Foreground, 23:00–06:59 | Targets a query every 10 minutes |
+| Low Power Mode | Targets a query every 10 minutes |
+| Returning to the foreground / manual refresh | Queries the currently available records |
+| HealthKit change notification | Coalesces duplicate notifications and queries again |
+| Background | Requests a refresh from watchOS; the system schedules delivery, potentially much later than the requested time |
+
+These intervals describe **how often existing health records are queried**. The app cannot guarantee new HRV measurements at the same frequency and does not start artificial workout sessions to increase sampling or keep itself running. The dashboard shows the actual sample times for HRV and heart rate separately; the time of the last record query appears in Settings.
+
+## How levels are calculated
+
+- Compare the latest valid SDNN sample with records from the same source over the preceding 28 days.
+- Require at least 20 baseline samples across at least 5 UTC dates. Exclude the current sample and the preceding 30 minutes from its own baseline.
+- Exclude samples during known workouts and for 30 minutes afterward, and account for activity indicators on nearby heart rate samples.
+- Take the natural logarithm of HRV and calculate `z = (baseline median − current value) / max(1.4826 × MAD, 0.15)` in log space. Display elevated for `z ≥ 1`, lower for `z ≤ −1`, and usual otherwise.
+- Stop treating a sample as a current estimate once it is more than 20 minutes old. Insufficient baseline, activity effects, missing data, and read errors have distinct states.
+- Show heart rate separately for context; it does not directly contribute to the stress level. Historical points use only earlier samples to build their baselines, and gaps are not interpolated.
+
+These thresholds are **explicit, testable engineering rules that have not been clinically validated**. They describe relative HRV changes, not a stress percentage, and are not intended for diagnosis. Activity, posture, breathing, sleep, and individual differences can affect readings. The interface notes when activity context is limited.
+
+## Data and privacy
+
+There are no accounts, servers, analytics SDKs, or third-party runtime dependencies. Health records are processed only in memory on the watch. Each successful query replaces the entire snapshot so that deletions and access changes can be reflected in the interface. Only the monitoring-enabled preference is stored in UserDefaults; raw health data is not written to disk.
+
+**暂停并清除本地结果** (Pause and clear local results) stops observation and clears the current in-memory results. Late asynchronous callbacks cannot restore old results. This does not delete records from Apple Health. Reconnecting queries the baseline again.
+
+To protect privacy, HealthKit does not tell the app whether read access to a particular data type was denied. Empty results therefore appear as “No readable data currently available,” without incorrectly claiming that access was granted or denied.
+
+## Tests and project structure
+
+```sh
+swift test --scratch-path /tmp/stress-meter-core-build
+zsh scripts/test-health-provider.sh
+xcodebuild -project StressMeter.xcodeproj -scheme StressMeter \
+  -destination 'generic/platform=watchOS Simulator' \
+  -derivedDataPath /tmp/stress-meter-derived-data CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project StressMeter.xcodeproj -scheme StressMeter \
+  -destination 'generic/platform=watchOS' \
+  -derivedDataPath /tmp/stress-meter-device-build CODE_SIGNING_ALLOWED=NO build
+```
+
+Keep build output under `/tmp`: some file providers for Documents attach Finder metadata to generated files, which can interfere with code signing for local test bundles.
+
+- `Sources/StressCore/`: Pure Swift estimation, data quality rules, refresh policy, asynchronous monitoring state, and pet state / animation conditions.
+- `Tests/StressCoreTests/`: Deterministic boundary and race-condition tests.
+- `WatchApp/HealthKitProvider.swift`: Read-only HealthKit queries, timeouts, and observation.
+- `WatchApp/AppModel.swift`: Foreground/background lifecycle and refresh scheduling.
+- `WatchApp/Views/`: Native SwiftUI interface; `TabbyCatView.swift` contains the grey tabby drawing and foreground animation.
+- [Verification record](docs/verification.md): Actual results and outstanding physical-device checks (in Chinese).
+- [Design](docs/design/2026-09-26-watchos-stress-meter-proposal.md) · [Implementation plan](docs/superpowers/plans/2026-09-26-stress-meter-v1.md) (in Chinese).
+
+## Official references and research
+
+- [Apple: HRV SDNN](https://developer.apple.com/documentation/healthkit/hkquantitytypeidentifier/heartratevariabilitysdnn)
+- [Apple: HealthKit background delivery](https://developer.apple.com/documentation/healthkit/hkhealthstore/enablebackgrounddelivery(for:frequency:withcompletion:))
+- [Apple: Health data authorization](https://developer.apple.com/documentation/healthkit/authorizing-access-to-health-data)
+- [Apple DTS: watchOS background limitations](https://developer.apple.com/forums/thread/816544)
+- [Apple Watch stress detection pilot study](https://pmc.ncbi.nlm.nih.gov/articles/PMC9780663/)
+- [Methodological guidance for HRV research and interpretation](https://pmc.ncbi.nlm.nih.gov/articles/PMC5316555/)
+
+---
+
+<a id="chinese"></a>
+
 # 压力计 · Stress Meter
 
 面向 **Apple Watch Series 11、watchOS 26 及以上**的独立中文手表应用。读取 Apple 健康中的心率变异性（SDNN）、心率和体能训练记录，展示相对于个人近期基线的实验性压力趋势。
