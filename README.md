@@ -2,6 +2,19 @@
 
 面向 **Apple Watch Series 11、watchOS 26 及以上**的独立中文手表应用。读取 Apple 健康中的心率变异性（SDNN）、心率和体能训练记录，展示相对于个人近期基线的实验性压力趋势。
 
+首页的**灰狸花猫**用姿态与轻动画呈现估算结果，同时显示等级和真实样本时间。
+
+| 状态 | 灰狸花猫的表现 |
+| --- | --- |
+| 偏低 | 舒展身体，闭眼放松，轻轻摆尾 |
+| 平常 | 放松坐姿，平稳呼吸，偶尔眨眼 |
+| 偏高 | 微微蜷起，耳朵稍垂，尾巴收拢 |
+| 无数据、基线不足、过期、活动影响或读取失败 | 中性等待姿态和省略号，并显示具体原因 |
+
+小猫使用原生 SwiftUI 矢量绘制。动画只在首页的小猫位于可见区域、应用活跃时播放，局部绘制最高约 12 帧/秒；常亮降亮度、低电量、减少动态效果、离开页面或滚动至看不到小猫时采用静态姿态。动画时钟不触发健康读取，动作变化不代表新测量。
+
+[四种姿态预览](docs/screenshots/tabby-poses.png)
+
 ## 打开与运行
 
 1. 用 Xcode 打开 `StressMeter.xcodeproj`，选择 **StressMeter** scheme。
@@ -61,11 +74,11 @@ xcodebuild -project StressMeter.xcodeproj -scheme StressMeter \
 
 建议将构建输出放在 `/tmp`：部分 Documents 文件提供程序会给生成文件附加 Finder 元数据，干扰本地测试 bundle 的代码签名。
 
-- `Sources/StressCore/`：纯 Swift 估算、数据质量、刷新策略、异步监测状态。
+- `Sources/StressCore/`：纯 Swift 估算、数据质量、刷新策略、异步监测状态及宠物状态/动画条件。
 - `Tests/StressCoreTests/`：确定性的边界与竞态测试。
 - `WatchApp/HealthKitProvider.swift`：只读 HealthKit 查询、超时和观察。
 - `WatchApp/AppModel.swift`：前后台生命周期和刷新调度。
-- `WatchApp/Views/`：原生 SwiftUI 界面。
+- `WatchApp/Views/`：原生 SwiftUI 界面；`TabbyCatView.swift` 包含灰狸花猫绘制及前台动画。
 - [验证记录](docs/verification.md)：实际执行结果及待完成的真机项目。
 - [设计](docs/design/2026-09-26-watchos-stress-meter-proposal.md) · [实现计划](docs/superpowers/plans/2026-09-26-stress-meter-v1.md)
 

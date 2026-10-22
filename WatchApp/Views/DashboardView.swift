@@ -8,12 +8,12 @@ struct DashboardView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 6) {
+            VStack(spacing: 4) {
                 if model.isDemo { DemoBadge() }
-                Text("压力趋势 · 估计")
+                Text("压力伙伴 · 估计")
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
-                gauge
+                pet
                 Label(ageText(assessment.sampleDate, now: model.now), systemImage: "clock")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -65,37 +65,20 @@ struct DashboardView: View {
         }
     }
 
-    private var gauge: some View {
-        ZStack {
-            Circle().trim(from: 0.12, to: 0.88)
-                .stroke(Color.white.opacity(0.1), style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                .rotationEffect(.degrees(90))
-            if assessment.state == .ready, let level = assessment.level {
-                Circle().trim(from: 0.12, to: arcEnd(level))
-                    .stroke(level.tint, style: StrokeStyle(lineWidth: 5, lineCap: .round))
-                    .rotationEffect(.degrees(90))
-            }
-            VStack(spacing: 6) {
-                Image(systemName: assessment.state == .ready ? (assessment.level?.symbol ?? "waveform.path") : "ellipsis")
-                    .font(.system(size: 16, weight: .light))
-                    .foregroundStyle(assessment.tint)
-                Text(model.session.errorMessage == nil ? assessment.title : "待重试")
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
-                    .minimumScaleFactor(0.65)
-                    .lineLimit(1)
-                Text("相对个人基线")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 12)
+    private var pet: some View {
+        let hasReadError = model.session.errorMessage != nil
+        let mood = PetMood(assessment: assessment, hasReadError: hasReadError)
+        return VStack(spacing: 0) {
+            TabbyCatView(mood: mood)
+                .frame(width: 150, height: 68)
+            Text(hasReadError ? "待重试" : assessment.title)
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .foregroundStyle(hasReadError ? .secondary : assessment.tint)
+                .minimumScaleFactor(0.65)
+                .lineLimit(1)
         }
-        .frame(width: 132, height: 88)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("压力趋势估计，\(model.session.errorMessage == nil ? assessment.title : "读取失败")")
-    }
-
-    private func arcEnd(_ level: StressLevel) -> CGFloat {
-        switch level { case .lower: 0.32; case .usual: 0.59; case .elevated: 0.88 }
+        .accessibilityLabel("灰狸花猫，\(mood.poseDescription)。压力趋势估计，\(hasReadError ? "读取失败，待重试" : assessment.title)")
     }
 
     private func metric(_ name: String, value: Double?, unit: String, date: Date?) -> some View {

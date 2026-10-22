@@ -9,6 +9,17 @@ enum Palette {
     static let panel = Color.white.opacity(0.075)
 }
 
+extension PetMood {
+    var poseDescription: String {
+        switch self {
+        case .relaxed: "身体舒展"
+        case .balanced: "放松坐姿"
+        case .tense: "微微蜷起，耳朵稍垂"
+        case .waiting: "等待有效数据"
+        }
+    }
+}
+
 extension StressLevel {
     var title: String {
         switch self { case .lower: "偏低"; case .usual: "平常"; case .elevated: "偏高" }

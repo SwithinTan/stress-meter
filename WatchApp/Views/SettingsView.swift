@@ -16,6 +16,11 @@ struct SettingsView: View {
                     .font(.footnote).foregroundStyle(Palette.mint)
                 Text("后台由系统安排，实际可能更久。刷新健康记录不等于启动一次新的心率变异性测量。")
                     .font(.caption2).foregroundStyle(.secondary)
+                Text("灰狸花伙伴").font(.headline)
+                Text("舒展表示偏低，放松坐姿表示平常，微微蜷起表示偏高。等待姿态表示当前无法估算，请查看首页原因与样本时间。")
+                    .font(.footnote).foregroundStyle(.secondary)
+                Text("动画只在查看首页时播放；常亮、低电量和减少动态效果时显示静态姿态。动作变化不代表产生了新测量。")
+                    .font(.caption2).foregroundStyle(.secondary)
                 if let date = model.lastReadDate {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("上次读取记录").font(.caption2).foregroundStyle(.secondary)
